@@ -12,7 +12,7 @@ import (
 )
 
 // JobInputs is a channel used to communicate with the pool of TicketFetcherWorker
-var JobInputs = make(chan fetcher.TicketFetcherJob, viper.GetInt("nbWorkers"))
+var JobInputs = make(chan *fetcher.TicketFetcherJob, viper.GetInt("nbWorkers"))
 
 // PingResponse is a JSON struct to use when responding to the client
 type PingResponse struct {
@@ -40,7 +40,7 @@ func About(c *gin.Context) {
 // TimeTracking is the handler for the GET /timetracking route.
 // This will respond by rendering the timetracking html page.
 func TimeTracking(c *gin.Context) {
-	timetrackings, _ := report.TimeTracking("", JobInputs)
+	timetrackings, _ := report.SortedTimeTracking("OPS", "", "", JobInputs)
 	c.HTML(http.StatusOK, "report/timetracking", gin.H{"timetrackings": timetrackings})
 }
 

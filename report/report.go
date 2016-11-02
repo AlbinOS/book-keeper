@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/AlbinOS/book-keeper/fetcher"
+	"github.com/serenize/snaker"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/andygrunwald/go-jira"
-	"github.com/serenize/snaker"
 	"github.com/spf13/viper"
 )
 
@@ -22,66 +22,63 @@ func (a int64arr) Len() int           { return len(a) }
 func (a int64arr) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a int64arr) Less(i, j int) bool { return a[i] < a[j] }
 
-// TimeTracking output for Operations & Analysis To Do List
-func TimeTracking(sprint string, jobInputs chan<- fetcher.TicketFetcherJob) ([]string, error) {
+// UserWorkLog describe work logged on one ticket by one user
+type UserWorkLog struct {
+	User    string
+	Ticket  *jira.Issue
+	WorkLog *jira.WorklogRecord
+}
 
+// TodoListOutput formats UserWorkLog output for direct inclusion in the Operations & Analysis To Do List
+func (u *UserWorkLog) String() string {
+	t := time.Time(u.WorkLog.Started)
+	date := fmt.Sprintf("%d/%02d/%02d", t.Day(), t.Month(), t.Year())
+	return fmt.Sprintf("%s\t%s\t%s\t%.2f\n", u.Ticket.Fields.Summary, snaker.SnakeToCamel(strings.Split(u.User, ".")[0]), date, (time.Duration(u.WorkLog.TimeSpentSeconds) * time.Second).Hours())
+}
+
+// SortedTimeTracking return timetracking by user sorted chronologically
+func SortedTimeTracking(project string, sprint string, worker string, jobInputs chan<- *fetcher.TicketFetcherJob) ([]*UserWorkLog, error) {
 	// JIRA credentials
 	user := viper.GetString("username")
 	password := viper.GetString("password")
 	endpoint := viper.GetString("endpoint")
 
-	// Init JIRA client
-	jiraClient, err := fetcher.InitJiraClient(endpoint, user, password)
+	// Seach for issue in JIRA using jql query language
+	jql := fmt.Sprintf("%s AND %s", fetcher.ProjectJql(project), fetcher.SprintJql(sprint))
+
+	// Get all tickets for analysis
+	rawIssues, err := fetcher.Tickets(endpoint, user, password, jql)
 	if err != nil {
 		return nil, err
 	}
 
-	// In order to use our pool of workers we need a way to get the result of the work
-	issues := make(chan *jira.Issue, viper.GetInt("nbWorkers"))
-
-	// Global JQL query
-	jqlString := "project=OPS"
-
-	// If no sprint is specified, get all issue for the current sprint
-	if sprint == "" {
-		jqlString = jqlString + " AND sprint in openSprints(OPS) AND sprint not in futureSprints(OPS)"
-	} else {
-		jqlString = jqlString + fmt.Sprintf(" AND sprint = %s", sprint)
-	}
-
-	// Seach for issue in JIRA using jql query language
-	rawIssues, _, err := jiraClient.Issue.Search(jqlString, nil)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to get issues using JQL='%s', cause: '%s'", jqlString, err)
-	}
-	log.Infof("There are %d issues selected by the query %s ...", len(rawIssues), jqlString)
-
-	// Do it in a go function to avoid blocking due to queue size
-	go fetcher.ScheduleTicket(rawIssues, jobInputs, issues)
+	// Fetch details for all selected issues
+	fetchedTickets := fetcher.FetchTicketsDetail(rawIssues, jobInputs)
 
 	// Hold every time tracking line
-	timetracking := make(map[int64]string)
+	timetracking := make(map[int64]*UserWorkLog)
 	var keys int64arr
 
-	// Read from workers
-	for i := 1; i <= len(rawIssues); i++ {
+	for _, ticket := range fetchedTickets {
 		// By issue, export worked log by issue
-		issue := <-issues
-		if issue.Fields.Worklog != nil {
-			for _, workLog := range issue.Fields.Worklog.Worklogs {
-				name := strings.Split(workLog.Author.Name, ".")[0]
+		if ticket.Fields.Worklog != nil {
+			for _, workLog := range ticket.Fields.Worklog.Worklogs {
+				// If user is specified and it is not the right one, ignore the log
+				if worker != "" && worker != workLog.Author.Name {
+					continue
+				}
+
 				t := time.Time(workLog.Started)
-				date := fmt.Sprintf("%d/%02d/%02d", t.Day(), t.Month(), t.Year())
-				timetracking[t.Unix()] = fmt.Sprintf("%s\t%s\t%s\t%.2f\n", issue.Fields.Summary, snaker.SnakeToCamel(name), date, (time.Duration(workLog.TimeSpentSeconds) * time.Second).Hours())
 				keys = append(keys, t.Unix())
+				timetracking[t.Unix()] = &UserWorkLog{User: workLog.Author.Name, Ticket: ticket, WorkLog: &workLog}
 			}
 		} else {
-			log.Warningf("Issue %s assigned to %s doesn't have any work logged !", issue.Key, issue.Fields.Assignee)
+			log.Warningf("Issue %s assigned to %s doesn't have any work logged !", ticket.Key, ticket.Fields.Assignee)
 		}
 	}
 
 	// Let's return everything we collected in chronological order
-	var sortedTimetracking []string
+	var sortedTimetracking []*UserWorkLog
 	sort.Sort(keys)
 	log.Infof("There are %d timetracking line generated :", len(timetracking))
 	for _, key := range keys {
