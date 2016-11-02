@@ -1,0 +1,7 @@
+{{ define "content" }}
+{{ range $key, $timetracking := .timetrackings }}
+    <h3>
+        {{ $timetracking }}
+    </h3>
+{{ end }}
+{{ end }}

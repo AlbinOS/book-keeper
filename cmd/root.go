@@ -59,6 +59,8 @@ func initConfig() {
 	viper.SetEnvPrefix("bookkeeper")    // all environment variable have to be prefixed by BOOKKEEPER
 	viper.AutomaticEnv()                // read in environment variables that match
 
+	viper.SetDefault("nbWorkers", 10) // set the default for number of worker
+
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
