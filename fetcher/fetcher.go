@@ -68,7 +68,7 @@ func StartWorkers(numberOfWorkerToStart int, endPoint string, user string, passw
 }
 
 // FetchTicketsDetail fetch all informations linked to a ticket like worklogs, timetracking, ...
-func FetchTicketsDetail(rawIssues []jira.Issue, jobInputs chan<- *TicketFetcherJob) []*jira.Issue {
+func FetchTicketsDetail(rawIssues []jira.Issue, jobInputs chan<- *TicketFetcherJob) <-chan *jira.Issue {
 
 	// In order to use our pool of workers we need a way to get the result of the work
 	issues := make(chan *jira.Issue, viper.GetInt("nbWorkers"))
@@ -76,14 +76,5 @@ func FetchTicketsDetail(rawIssues []jira.Issue, jobInputs chan<- *TicketFetcherJ
 	// Schedule ticket for fetching in a go function to avoid blocking due to queue size
 	go ScheduleTicket(rawIssues, jobInputs, issues)
 
-	// Return a list of fully fectched tickets
-	var fetchedIssues []*jira.Issue
-
-	// Read from workers
-	for i := 1; i <= len(rawIssues); i++ {
-		// By issue, export worked log by issue
-		fetchedIssues = append(fetchedIssues, <-issues)
-	}
-
-	return fetchedIssues
+	return issues
 }

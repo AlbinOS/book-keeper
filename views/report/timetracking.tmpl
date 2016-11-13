@@ -1,7 +1,32 @@
 {{ define "content" }}
-{{ range $key, $timetracking := .timetrackings }}
-    <h3>
-        {{ $timetracking }}
-    </h3>
-{{ end }}
+<table class="table table-striped table-hover">
+    <thead class="thead-inverse">
+        <tr>
+            <th>Task</th>
+            <th>User</th>
+            <th>Date</th>
+            <th>Duration (hours)</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{ range $key, $timetracking := .timetrackings }}
+
+        <tr>
+            <td>
+                {{ $timetracking.Ticket }}
+            </td>
+            <td>
+                {{ $timetracking.User }}
+            </td>
+            <td>
+                {{ $timetracking.Date }}
+            </td>
+            <td>
+                {{ $timetracking.Duration }}
+            </td>
+        </tr>
+
+        {{ end }}
+    </tbody>
+</table>
 {{ end }}

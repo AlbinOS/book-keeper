@@ -10,7 +10,6 @@ import (
 	"github.com/serenize/snaker"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/andygrunwald/go-jira"
 	"github.com/spf13/viper"
 )
 
@@ -24,16 +23,10 @@ func (a int64arr) Less(i, j int) bool { return a[i] < a[j] }
 
 // UserWorkLog describe work logged on one ticket by one user
 type UserWorkLog struct {
-	User    string
-	Ticket  *jira.Issue
-	WorkLog *jira.WorklogRecord
-}
-
-// TodoListOutput formats UserWorkLog output for direct inclusion in the Operations & Analysis To Do List
-func (u *UserWorkLog) String() string {
-	t := time.Time(u.WorkLog.Started)
-	date := fmt.Sprintf("%d/%02d/%02d", t.Day(), t.Month(), t.Year())
-	return fmt.Sprintf("%s\t%s\t%s\t%.2f\n", u.Ticket.Fields.Summary, snaker.SnakeToCamel(strings.Split(u.User, ".")[0]), date, (time.Duration(u.WorkLog.TimeSpentSeconds) * time.Second).Hours())
+	Ticket   string
+	User     string
+	Date     string
+	Duration float64
 }
 
 // SortedTimeTracking return timetracking by user sorted chronologically
@@ -59,7 +52,9 @@ func SortedTimeTracking(project string, sprint string, worker string, jobInputs 
 	timetracking := make(map[int64]*UserWorkLog)
 	var keys int64arr
 
-	for _, ticket := range fetchedTickets {
+	for i := 1; i <= len(rawIssues); i++ {
+		ticket := <-fetchedTickets
+
 		// By issue, export worked log by issue
 		if ticket.Fields.Worklog != nil {
 			for _, workLog := range ticket.Fields.Worklog.Worklogs {
@@ -70,7 +65,10 @@ func SortedTimeTracking(project string, sprint string, worker string, jobInputs 
 
 				t := time.Time(workLog.Started)
 				keys = append(keys, t.Unix())
-				timetracking[t.Unix()] = &UserWorkLog{User: workLog.Author.Name, Ticket: ticket, WorkLog: &workLog}
+
+				date := fmt.Sprintf("%d/%02d/%02d", t.Day(), t.Month(), t.Year())
+				timetracking[t.Unix()] = &UserWorkLog{Ticket: ticket.Fields.Summary, User: snaker.SnakeToCamel(strings.Split(workLog.Author.Name, ".")[0]), Date: date, Duration: (time.Duration(workLog.TimeSpentSeconds) * time.Second).Hours()}
+				//	timetracking[t.Unix()] = &UserWorkLog{User: workLog.Author.Name, Ticket: ticket, WorkLog: &workLog}
 			}
 		} else {
 			log.Warningf("Issue %s assigned to %s doesn't have any work logged !", ticket.Key, ticket.Fields.Assignee)
