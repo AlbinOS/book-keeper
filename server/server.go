@@ -40,9 +40,13 @@ func About(c *gin.Context) {
 // TimeTracking is the handler for the GET /timetracking route.
 // This will respond by rendering the timetracking html page.
 func TimeTracking(c *gin.Context) {
-	name := c.Param("user")
-	timetrackings, _ := report.SortedTimeTracking("OPS", "", name, JobInputs)
-	c.HTML(http.StatusOK, "report/timetracking", gin.H{"timetrackings": timetrackings})
+	user := c.Param("user")
+	timetrackings, err := report.SortedTimeTracking("OPS", "", user, JobInputs)
+	if err == nil {
+		c.HTML(http.StatusOK, "report/timetracking", gin.H{"timetrackings": timetrackings})
+	} else {
+		c.HTML(http.StatusInternalServerError, "errors/500", gin.H{"message": err})
+	}
 }
 
 // Serve 'Em all

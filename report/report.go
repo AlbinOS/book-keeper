@@ -32,12 +32,16 @@ type UserWorkLog struct {
 // SortedTimeTracking return timetracking by user sorted chronologically
 func SortedTimeTracking(project string, sprint string, worker string, jobInputs chan<- *fetcher.TicketFetcherJob) ([]*UserWorkLog, error) {
 	// JIRA credentials
-	user := viper.GetString("username")
+	user := viper.GetString("user")
 	password := viper.GetString("password")
 	endpoint := viper.GetString("endpoint")
 
 	// Seach for issue in JIRA using jql query language
 	jql := fmt.Sprintf("%s AND %s", fetcher.ProjectJql(project), fetcher.SprintJql(sprint))
+	log.WithFields(log.Fields{
+		"endpoint": endpoint,
+		"worker":   worker,
+	}).Infof("Fetching JIRA tickets using JQL: '%s'", jql)
 
 	// Get all tickets for analysis
 	rawIssues, err := fetcher.Tickets(endpoint, user, password, jql)
