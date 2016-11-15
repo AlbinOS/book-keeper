@@ -13,31 +13,41 @@ import (
 	"github.com/spf13/viper"
 )
 
-// 64int array type to be used with sort
-type int64arr []int64
-
-// 64int array type functions to be used with sort
-func (a int64arr) Len() int           { return len(a) }
-func (a int64arr) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a int64arr) Less(i, j int) bool { return a[i] < a[j] }
-
 // UserWorkLog describe work logged on one ticket by one user
 type UserWorkLog struct {
-	Ticket   string
-	User     string
-	Date     string
-	Duration float64
+	Ticket     string
+	TicketURL  string
+	User       string
+	Date       string
+	Timestamp  int64
+	Duration   float64
+	WorklogURL string
+}
+
+// UserWorkLogs is a slice of UserWorkLog
+type UserWorkLogs []*UserWorkLog
+
+func (slice UserWorkLogs) Len() int {
+	return len(slice)
+}
+
+func (slice UserWorkLogs) Less(i, j int) bool {
+	return slice[i].Timestamp < slice[j].Timestamp
+}
+
+func (slice UserWorkLogs) Swap(i, j int) {
+	slice[i], slice[j] = slice[j], slice[i]
 }
 
 // SortedTimeTracking return timetracking by user sorted chronologically
-func SortedTimeTracking(project string, sprint string, worker string, jobInputs chan<- *fetcher.TicketFetcherJob) ([]*UserWorkLog, error) {
+func SortedTimeTracking(sprint string, worker string, jobInputs chan<- *fetcher.TicketFetcherJob) (UserWorkLogs, error) {
 	// JIRA credentials
 	user := viper.GetString("user")
 	password := viper.GetString("password")
 	endpoint := viper.GetString("endpoint")
 
 	// Seach for issue in JIRA using jql query language
-	jql := fmt.Sprintf("%s AND %s", fetcher.ProjectJql(project), fetcher.SprintJql(sprint))
+	jql := fmt.Sprintf("%s", fetcher.SprintJql(sprint))
 	log.WithFields(log.Fields{
 		"endpoint": endpoint,
 		"worker":   worker,
@@ -53,26 +63,22 @@ func SortedTimeTracking(project string, sprint string, worker string, jobInputs 
 	fetchedTickets := fetcher.FetchTicketsDetail(rawIssues, jobInputs)
 
 	// Hold every time tracking line
-	timetracking := make(map[int64]*UserWorkLog)
-	var keys int64arr
+	var timetracking UserWorkLogs
 
 	for i := 1; i <= len(rawIssues); i++ {
 		ticket := <-fetchedTickets
 
 		// By issue, export worked log by issue
 		if ticket.Fields.Worklog != nil {
-			for _, workLog := range ticket.Fields.Worklog.Worklogs {
+			for _, worklog := range ticket.Fields.Worklog.Worklogs {
 				// If user is specified and it is not the right one, ignore the log
-				if worker != "" && worker != workLog.Author.Name {
+				if worker != "" && worker != worklog.Author.Name {
 					continue
 				}
 
-				t := time.Time(workLog.Started)
-				keys = append(keys, t.Unix())
-
+				t := time.Time(worklog.Started)
 				date := fmt.Sprintf("%d/%02d/%02d", t.Day(), t.Month(), t.Year())
-				timetracking[t.Unix()] = &UserWorkLog{Ticket: ticket.Fields.Summary, User: snaker.SnakeToCamel(strings.Split(workLog.Author.Name, ".")[0]), Date: date, Duration: (time.Duration(workLog.TimeSpentSeconds) * time.Second).Hours()}
-				//	timetracking[t.Unix()] = &UserWorkLog{User: workLog.Author.Name, Ticket: ticket, WorkLog: &workLog}
+				timetracking = append(timetracking, &UserWorkLog{Ticket: ticket.Fields.Summary, TicketURL: fetcher.TicketURL(endpoint, ticket.Key), User: snaker.SnakeToCamel(strings.Split(worklog.Author.Name, ".")[0]), Date: date, Timestamp: t.Unix(), Duration: (time.Duration(worklog.TimeSpentSeconds) * time.Second).Hours(), WorklogURL: fetcher.WorklogURL(endpoint, ticket.Key, worklog.ID)})
 			}
 		} else {
 			log.Warningf("Issue %s assigned to %s doesn't have any work logged !", ticket.Key, ticket.Fields.Assignee)
@@ -80,14 +86,10 @@ func SortedTimeTracking(project string, sprint string, worker string, jobInputs 
 	}
 
 	// Let's return everything we collected in chronological order
-	var sortedTimetracking []*UserWorkLog
-	sort.Sort(keys)
-	log.Infof("There are %d timetracking line generated :", len(timetracking))
-	for _, key := range keys {
-		sortedTimetracking = append(sortedTimetracking, timetracking[key])
-	}
+	log.Infof("There are %d timetracking line generated.", len(timetracking))
+	sort.Sort(timetracking)
 
-	return sortedTimetracking, nil
+	return timetracking, nil
 }
 
 // TODO: CostDriver blabla

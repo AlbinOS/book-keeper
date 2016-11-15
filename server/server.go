@@ -40,8 +40,9 @@ func About(c *gin.Context) {
 // TimeTracking is the handler for the GET /timetracking route.
 // This will respond by rendering the timetracking html page.
 func TimeTracking(c *gin.Context) {
+	sprint := c.Param("sprint")
 	user := c.Param("user")
-	timetrackings, err := report.SortedTimeTracking("OPS", "", user, JobInputs)
+	timetrackings, err := report.SortedTimeTracking(sprint, user, JobInputs)
 	if err == nil {
 		c.HTML(http.StatusOK, "report/timetracking", gin.H{"timetrackings": timetrackings})
 	} else {
@@ -76,8 +77,13 @@ func Serve() {
 
 	// TimeTracking
 	report := router.Group("/report")
-	report.GET("/timetracking", TimeTracking)
-	report.GET("/timetracking/:user", TimeTracking)
+	report.GET("/timetracking", TimeTracking) // All users, current sprint
+
+	report.GET("/timetracking/users/:user", TimeTracking) // One user, current sprint
+
+	report.GET("/timetracking/sprints/:sprint", TimeTracking) // All users, one sprint
+
+	report.GET("/timetracking/sprints/:sprint/:user", TimeTracking) // One user, one sprint
 
 	// Run the pool of JIRA ticket fetcher
 	fetcher.StartWorkers(viper.GetInt("nbWorkers"), viper.GetString("endpoint"), viper.GetString("user"), viper.GetString("password"), JobInputs)

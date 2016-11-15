@@ -2,6 +2,7 @@ package fetcher
 
 import (
 	"fmt"
+	"path"
 
 	log "github.com/Sirupsen/logrus"
 	jira "github.com/andygrunwald/go-jira"
@@ -49,10 +50,21 @@ func SprintJql(sprint string) string {
 	if sprint == "" {
 		return "sprint in openSprints(OPS) AND sprint not in futureSprints(OPS)"
 	}
-	return fmt.Sprintf("sprint = %s", sprint)
+	return fmt.Sprintf("sprint=\"%s\"", sprint)
 }
 
 // ProjectJql construct a valid project related JIRA Jql condition
 func ProjectJql(project string) string {
-	return fmt.Sprintf("project=%s", project)
+	return fmt.Sprintf("project=\"%s\"", project)
+}
+
+// TicketURL construct a valid JIRA cloud ticket browsing url
+func TicketURL(endpoint string, ticketKey string) string {
+	return endpoint + path.Join("browse", ticketKey)
+}
+
+// WorklogURL construct a valid JIRA cloud permanent worklog browsing url
+func WorklogURL(endpoint string, ticketKey string, worklogID string) string {
+	worklogFocusedEndpoint := fmt.Sprintf("%s%s%s%s%s", ticketKey, "?focusedWorklogId=", worklogID, "&page=com.atlassian.jira.plugin.system.issuetabpanels%3Aworklog-tabpanel#worklog-", worklogID)
+	return endpoint + path.Join("browse", worklogFocusedEndpoint)
 }

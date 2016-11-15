@@ -13,7 +13,9 @@
 
         <tr>
             <td>
-                {{ $timetracking.Ticket }}
+                <a href={{ $timetracking.TicketURL }}>
+                    {{ $timetracking.Ticket }}
+                </a>
             </td>
             <td>
                 {{ $timetracking.User }}
@@ -22,7 +24,9 @@
                 {{ $timetracking.Date }}
             </td>
             <td>
-                {{ $timetracking.Duration }}
+                <a href={{ $timetracking.WorklogURL }}>
+                    {{ $timetracking.Duration }}
+                </a>
             </td>
         </tr>
 

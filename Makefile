@@ -14,9 +14,9 @@ build:
 install: dependencies build
 
 docker:
-	GOOS=linux GOARCH=amd64 go build -a -o build/book-keeper github.com/AlbinOS/book-keeper
+	GOOS=linux GOARCH=amd64 go build -a -o build/book-keeper github.com/AlbinOS/book-keeper && cp -r views build/views && cp -r static build/static
 	cd build && docker build -t albinos/book-keeper . && cd ..
-	rm build/book-keeper
+	rm -rf build/book-keeper && rm -rf build/views && rm -rf build/static
 
 docker_push:
 	docker push albinos/book-keeper
