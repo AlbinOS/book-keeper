@@ -15,13 +15,13 @@ import (
 
 // UserWorkLog describe work logged on one ticket by one user
 type UserWorkLog struct {
-	Ticket     string
-	TicketURL  string
-	User       string
-	Date       string
-	Timestamp  int64
-	Duration   float64
-	WorklogURL string
+	Ticket     string  `json:"ticket"`
+	TicketURL  string  `json:"ticket_url"`
+	User       string  `json:"user"`
+	Date       string  `json:"date"`
+	Timestamp  int64   `json:"timestamp"`
+	Duration   float64 `json:"duration"`
+	WorklogURL string  `json:"worklog_url"`
 }
 
 // UserWorkLogs is a slice of UserWorkLog

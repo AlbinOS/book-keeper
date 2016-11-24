@@ -43,10 +43,16 @@ func TimeTracking(c *gin.Context) {
 	sprint := c.Param("sprint")
 	user := c.Param("user")
 	timetrackings, err := report.SortedTimeTracking(sprint, user, JobInputs)
-	if err == nil {
-		c.HTML(http.StatusOK, "report/timetracking", gin.H{"timetrackings": timetrackings})
-	} else {
-		c.HTML(http.StatusInternalServerError, "errors/500", gin.H{"message": err})
+
+	switch c.NegotiateFormat(gin.MIMEHTML, gin.MIMEJSON) {
+	case gin.MIMEHTML:
+		if err == nil {
+			c.HTML(http.StatusOK, "report/timetracking", gin.H{"timetrackings": timetrackings})
+		} else {
+			c.HTML(http.StatusInternalServerError, "errors/500", gin.H{"message": err})
+		}
+	case gin.MIMEJSON:
+		c.JSON(200, timetrackings)
 	}
 }
 
@@ -54,6 +60,11 @@ func TimeTracking(c *gin.Context) {
 func Serve() {
 	// Create a default gin stack
 	router := gin.Default()
+	router.Use(func(context *gin.Context) {
+		// Add header Access-Control-Allow-Origin
+		context.Writer.Header().Add("Access-Control-Allow-Origin", "*")
+		context.Next()
+	})
 
 	// Load templates
 	render := eztemplate.New()
@@ -64,6 +75,7 @@ func Serve() {
 
 	// Load all static assets
 	router.Static("/static", "./static")
+	router.StaticFile("/favicon.ico", "./static/favicon.ico")
 
 	// API routes
 	api := router.Group("/api")
