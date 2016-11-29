@@ -22,6 +22,7 @@ type UserWorkLog struct {
 	Timestamp  int64   `json:"timestamp"`
 	Duration   float64 `json:"duration"`
 	WorklogURL string  `json:"worklog_url"`
+	WorklogID  string  `json:"worklog_id"`
 }
 
 // UserWorkLogs is a slice of UserWorkLog
@@ -78,7 +79,7 @@ func SortedTimeTracking(sprint string, worker string, jobInputs chan<- *fetcher.
 
 				t := time.Time(worklog.Started)
 				date := fmt.Sprintf("%d/%02d/%02d", t.Day(), t.Month(), t.Year())
-				timetracking = append(timetracking, &UserWorkLog{Ticket: ticket.Fields.Summary, TicketURL: fetcher.TicketURL(endpoint, ticket.Key), User: snaker.SnakeToCamel(strings.Split(worklog.Author.Name, ".")[0]), Date: date, Timestamp: t.Unix(), Duration: (time.Duration(worklog.TimeSpentSeconds) * time.Second).Hours(), WorklogURL: fetcher.WorklogURL(endpoint, ticket.Key, worklog.ID)})
+				timetracking = append(timetracking, &UserWorkLog{Ticket: ticket.Fields.Summary, TicketURL: fetcher.TicketURL(endpoint, ticket.Key), User: snaker.SnakeToCamel(strings.Split(worklog.Author.Name, ".")[0]), Date: date, Timestamp: t.Unix(), Duration: (time.Duration(worklog.TimeSpentSeconds) * time.Second).Hours(), WorklogURL: fetcher.WorklogURL(endpoint, ticket.Key, worklog.ID), WorklogID: worklog.ID})
 			}
 		} else {
 			log.Warningf("Issue %s assigned to %s doesn't have any work logged !", ticket.Key, ticket.Fields.Assignee)

@@ -2,12 +2,12 @@ package server
 
 import (
 	"net/http"
+    "html/template"
 
 	"github.com/AlbinOS/book-keeper/fetcher"
 	"github.com/AlbinOS/book-keeper/report"
 
 	"github.com/gin-gonic/gin"
-	eztemplate "github.com/michelloworld/ez-gin-template"
 	"github.com/spf13/viper"
 )
 
@@ -19,83 +19,56 @@ type PingResponse struct {
 	Pong string `json:"pong"`
 }
 
+// ErrorResponse is a JSON struct to use when responding to the client
+type ErrorResponse struct {
+	Error error `json:"error"`
+}
+
 // Ping is the handler for the GET /api/ping route.
 // This will respond by a pong JSON message if the server is alive
 func Ping(c *gin.Context) {
 	c.JSON(http.StatusOK, PingResponse{Pong: "OK"})
 }
 
-// Home is the handler for the GET / route.
-// This will respond by rendering the home html page.
-func Home(c *gin.Context) {
-	c.HTML(http.StatusOK, "home/root", gin.H{})
-}
-
-// About is the handler for the GET /about route.
-// This will respond by rendering the about html page.
-func About(c *gin.Context) {
-	c.HTML(http.StatusOK, "home/about", gin.H{})
-}
-
-// TimeTracking is the handler for the GET /timetracking route.
+// TimeTracking is the handler for the GET /api/timetracking/* route.
 // This will respond by rendering the timetracking html page.
 func TimeTracking(c *gin.Context) {
 	sprint := c.Param("sprint")
 	user := c.Param("user")
 	timetrackings, err := report.SortedTimeTracking(sprint, user, JobInputs)
-
-	switch c.NegotiateFormat(gin.MIMEHTML, gin.MIMEJSON) {
-	case gin.MIMEHTML:
-		if err == nil {
-			c.HTML(http.StatusOK, "report/timetracking", gin.H{"timetrackings": timetrackings})
-		} else {
-			c.HTML(http.StatusInternalServerError, "errors/500", gin.H{"message": err})
-		}
-	case gin.MIMEJSON:
-		c.JSON(200, timetrackings)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err})
+	} else {
+		c.JSON(http.StatusOK, timetrackings)
 	}
+}
+
+// ShowUI serves the main Book Keeper application page.
+func ShowUI(c *gin.Context) {
+	c.HTML(200, "index.html", gin.H{})
 }
 
 // Serve 'Em all
 func Serve() {
 	// Create a default gin stack
 	router := gin.Default()
-	router.Use(func(context *gin.Context) {
-		// Add header Access-Control-Allow-Origin
-		context.Writer.Header().Add("Access-Control-Allow-Origin", "*")
-		context.Next()
-	})
+    html := template.Must(template.ParseFiles("./dist/index.html"))
+    router.SetHTMLTemplate(html)
+    // Book Keeper UI
+    router.Static("/static", "./dist/static")
+    router.StaticFile("/favicon.ico", "./dist/favicon.ico")
 
-	// Load templates
-	render := eztemplate.New()
-	render.TemplatesDir = "views/"
-	render.Debug = gin.IsDebugging()
-	render.Ext = ".tmpl"
-	router.HTMLRender = render.Init()
 
-	// Load all static assets
-	router.Static("/static", "./static")
-	router.StaticFile("/favicon.ico", "./static/favicon.ico")
+
+    router.NoRoute(ShowUI)
 
 	// API routes
 	api := router.Group("/api")
 	api.GET("/ping", Ping)
-
-	// Root
-	router.GET("/", Home)
-
-	// About
-	router.GET("/about", About)
-
-	// TimeTracking
-	report := router.Group("/report")
-	report.GET("/timetracking", TimeTracking) // All users, current sprint
-
-	report.GET("/timetracking/users/:user", TimeTracking) // One user, current sprint
-
-	report.GET("/timetracking/sprints/:sprint", TimeTracking) // All users, one sprint
-
-	report.GET("/timetracking/sprints/:sprint/:user", TimeTracking) // One user, one sprint
+	api.GET("/timetracking", TimeTracking)                       // All users, current sprints
+	api.GET("/timetracking/users/:user", TimeTracking)           // One user, current sprints
+	api.GET("/timetracking/sprints/:sprint", TimeTracking)       // All users, one sprint
+	api.GET("/timetracking/sprints/:sprint/:user", TimeTracking) // One user, one sprint
 
 	// Run the pool of JIRA ticket fetcher
 	fetcher.StartWorkers(viper.GetInt("nbWorkers"), viper.GetString("endpoint"), viper.GetString("user"), viper.GetString("password"), JobInputs)

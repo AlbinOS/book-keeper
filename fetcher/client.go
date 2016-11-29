@@ -46,9 +46,9 @@ func Tickets(endpoint string, user string, password string, jql string) ([]jira.
 // SprintJql construct a valid sprint related JIRA Jql condition
 func SprintJql(sprint string) string {
 
-	// If no sprint is specified, get all issue for the current sprint
+	// If no sprint is specified, get all issue for the current sprints
 	if sprint == "" {
-		return "sprint in openSprints(OPS) AND sprint not in futureSprints(OPS)"
+		return "sprint in openSprints() AND sprint not in futureSprints()"
 	}
 	return fmt.Sprintf("sprint=\"%s\"", sprint)
 }
