@@ -41,7 +41,7 @@ func (slice UserWorkLogs) Swap(i, j int) {
 }
 
 // SortedTimeTracking return timetracking by user sorted chronologically
-func SortedTimeTracking(sprint string, worker string, jobInputs chan<- *fetcher.TicketFetcherJob) (UserWorkLogs, error) {
+func SortedTimeTracking(sprint string, jobInputs chan<- *fetcher.TicketFetcherJob) (UserWorkLogs, error) {
 	// JIRA credentials
 	user := viper.GetString("user")
 	password := viper.GetString("password")
@@ -51,7 +51,6 @@ func SortedTimeTracking(sprint string, worker string, jobInputs chan<- *fetcher.
 	jql := fmt.Sprintf("%s", fetcher.SprintJql(sprint))
 	log.WithFields(log.Fields{
 		"endpoint": endpoint,
-		"worker":   worker,
 	}).Infof("Fetching JIRA tickets using JQL: '%s'", jql)
 
 	// Get all tickets for analysis
@@ -72,11 +71,6 @@ func SortedTimeTracking(sprint string, worker string, jobInputs chan<- *fetcher.
 		// By issue, export worked log by issue
 		if ticket.Fields.Worklog != nil {
 			for _, worklog := range ticket.Fields.Worklog.Worklogs {
-				// If user is specified and it is not the right one, ignore the log
-				if worker != "" && worker != worklog.Author.Name {
-					continue
-				}
-
 				t := time.Time(worklog.Started)
 				date := fmt.Sprintf("%d/%02d/%02d", t.Day(), t.Month(), t.Year())
 				timetracking = append(timetracking, &UserWorkLog{Ticket: ticket.Fields.Summary, TicketURL: fetcher.TicketURL(endpoint, ticket.Key), User: snaker.SnakeToCamel(strings.Split(worklog.Author.Name, ".")[0]), Date: date, Timestamp: t.Unix(), Duration: (time.Duration(worklog.TimeSpentSeconds) * time.Second).Hours(), WorklogURL: fetcher.WorklogURL(endpoint, ticket.Key, worklog.ID), WorklogID: worklog.ID})
@@ -92,19 +86,3 @@ func SortedTimeTracking(sprint string, worker string, jobInputs chan<- *fetcher.
 
 	return timetracking, nil
 }
-
-// TODO: CostDriver blabla
-// func CostDriver(project string) error {
-// 	// Prompt user for JIRA credentials
-// 	user, password := jiraCredentialsPrompt()
-//
-// 	// Init JIRA client
-// 	jiraClient, err := initJiraClient(jiraEndpoint, user, password)
-// 	if err != nil {
-// 		return err
-// 	}
-//
-// 	// TODO
-//
-// 	return nil
-// }

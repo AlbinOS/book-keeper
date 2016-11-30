@@ -1,9 +1,11 @@
 package server
 
 import (
+	"html/template"
 	"net/http"
-    "html/template"
+	"path/filepath"
 
+	"github.com/AlbinOS/book-keeper-ui/dist"
 	"github.com/AlbinOS/book-keeper/fetcher"
 	"github.com/AlbinOS/book-keeper/report"
 
@@ -34,13 +36,24 @@ func Ping(c *gin.Context) {
 // This will respond by rendering the timetracking html page.
 func TimeTracking(c *gin.Context) {
 	sprint := c.Param("sprint")
-	user := c.Param("user")
-	timetrackings, err := report.SortedTimeTracking(sprint, user, JobInputs)
+	timetrackings, err := report.SortedTimeTracking(sprint, JobInputs)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err})
 	} else {
 		c.JSON(http.StatusOK, timetrackings)
 	}
+}
+
+// LoadHTMLIndex is sup
+func LoadHTMLIndex() *template.Template {
+	tmpl := template.New("_")
+
+	src := dist.MustAsset(filepath.Join("build", "index.html"))
+	tmpl = template.Must(
+		tmpl.New("index.html").Parse(string(src)),
+	)
+
+	return tmpl
 }
 
 // ShowUI serves the main Book Keeper application page.
@@ -52,23 +65,19 @@ func ShowUI(c *gin.Context) {
 func Serve() {
 	// Create a default gin stack
 	router := gin.Default()
-    html := template.Must(template.ParseFiles("./dist/index.html"))
-    router.SetHTMLTemplate(html)
-    // Book Keeper UI
-    router.Static("/static", "./dist/static")
-    router.StaticFile("/favicon.ico", "./dist/favicon.ico")
 
+	// Serve Book Keeper UI
+	router.SetHTMLTemplate(LoadHTMLIndex())
+	fs := http.FileServer(dist.AssetFS())
+	router.GET("/static/*filepath", func(c *gin.Context) { fs.ServeHTTP(c.Writer, c.Request) })
+	router.GET("/favicon.ico", func(c *gin.Context) { fs.ServeHTTP(c.Writer, c.Request) })
+	router.NoRoute(ShowUI)
 
-
-    router.NoRoute(ShowUI)
-
-	// API routes
+	// Serve API
 	api := router.Group("/api")
 	api.GET("/ping", Ping)
-	api.GET("/timetracking", TimeTracking)                       // All users, current sprints
-	api.GET("/timetracking/users/:user", TimeTracking)           // One user, current sprints
-	api.GET("/timetracking/sprints/:sprint", TimeTracking)       // All users, one sprint
-	api.GET("/timetracking/sprints/:sprint/:user", TimeTracking) // One user, one sprint
+	api.GET("/timetracking", TimeTracking)                 // All users, current sprints
+	api.GET("/timetracking/sprints/:sprint", TimeTracking) // All users, one sprint
 
 	// Run the pool of JIRA ticket fetcher
 	fetcher.StartWorkers(viper.GetInt("nbWorkers"), viper.GetString("endpoint"), viper.GetString("user"), viper.GetString("password"), JobInputs)
