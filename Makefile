@@ -1,3 +1,6 @@
+dependencies_ui:
+	go get -u github.com/AlbinOS/book-keeper-ui/dist
+
 dependencies:
 	go get -u -f ./...
 
