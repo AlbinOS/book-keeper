@@ -41,14 +41,14 @@ func (slice UserWorkLogs) Swap(i, j int) {
 }
 
 // SortedTimeTracking return timetracking by user sorted chronologically
-func SortedTimeTracking(sprint string, jobInputs chan<- *fetcher.TicketFetcherJob) (UserWorkLogs, error) {
+func SortedTimeTracking(jobInputs chan<- *fetcher.TicketFetcherJob) (UserWorkLogs, error) {
 	// JIRA credentials
 	user := viper.GetString("user")
 	password := viper.GetString("password")
 	endpoint := viper.GetString("endpoint")
 
 	// Seach for issue in JIRA using jql query language
-	jql := fmt.Sprintf("%s", fetcher.SprintJql(sprint))
+	jql := fmt.Sprintf("%s", fetcher.UpdatedJql("-30d"))
 	log.WithFields(log.Fields{
 		"endpoint": endpoint,
 	}).Infof("Fetching JIRA tickets using JQL: '%s'", jql)
@@ -82,7 +82,7 @@ func SortedTimeTracking(sprint string, jobInputs chan<- *fetcher.TicketFetcherJo
 
 	// Let's return everything we collected in chronological order
 	log.Infof("There are %d timetracking line generated.", len(timetracking))
-	sort.Sort(timetracking)
+	sort.Sort(sort.Reverse(timetracking))
 
 	return timetracking, nil
 }

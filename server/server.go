@@ -35,8 +35,7 @@ func Ping(c *gin.Context) {
 // TimeTracking is the handler for the GET /api/timetracking/* route.
 // This will respond by rendering the timetracking html page.
 func TimeTracking(c *gin.Context) {
-	sprint := c.Param("sprint")
-	timetrackings, err := report.SortedTimeTracking(sprint, JobInputs)
+	timetrackings, err := report.SortedTimeTracking(JobInputs)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err})
 	} else {
@@ -76,8 +75,7 @@ func Serve() {
 	// Serve API
 	api := router.Group("/api")
 	api.GET("/ping", Ping)
-	api.GET("/timetracking", TimeTracking)                 // All users, current sprints
-	api.GET("/timetracking/sprints/:sprint", TimeTracking) // All users, one sprint
+	api.GET("/timetracking", TimeTracking) // All users, current sprints
 
 	// Run the pool of JIRA ticket fetcher
 	fetcher.StartWorkers(viper.GetInt("nbWorkers"), viper.GetString("endpoint"), viper.GetString("user"), viper.GetString("password"), JobInputs)

@@ -24,7 +24,7 @@ func InitJiraClient(endpoint string, user string, password string) (*jira.Client
 	return jiraClient, nil
 }
 
-// Tickets fetchs tickets according to defined criterias
+// Tickets fetchs tickets according to defined jql
 func Tickets(endpoint string, user string, password string, jql string) ([]jira.Issue, error) {
 
 	// Init JIRA client
@@ -56,6 +56,11 @@ func SprintJql(sprint string) string {
 // ProjectJql construct a valid project related JIRA Jql condition
 func ProjectJql(project string) string {
 	return fmt.Sprintf("project=\"%s\"", project)
+}
+
+// UpdatedJql construct a valid updated date related JIRA Jql condition
+func UpdatedJql(delay string) string {
+	return fmt.Sprintf("updated>%s", delay)
 }
 
 // TicketURL construct a valid JIRA cloud ticket browsing url
