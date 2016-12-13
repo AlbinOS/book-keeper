@@ -34,7 +34,7 @@ func Tickets(endpoint string, user string, password string, jql string) ([]jira.
 	}
 
 	// Seach for issue in JIRA using jql query language
-	tickets, _, err := jiraClient.Issue.Search(jql, nil)
+	tickets, _, err := jiraClient.Issue.Search(jql, &jira.SearchOptions{MaxResults: 100})
 	if err != nil {
 		return nil, fmt.Errorf("Unable to get issues using JQL='%s', cause: '%s'", jql, err)
 	}
@@ -60,6 +60,10 @@ func ProjectJql(project string) string {
 
 // UpdatedJql construct a valid updated date related JIRA Jql condition
 func UpdatedJql(delay string) string {
+	// If no sprint is specified, get all issue for the current sprints
+	if delay == "" {
+		return "updated>-30d"
+	}
 	return fmt.Sprintf("updated>%s", delay)
 }
 
