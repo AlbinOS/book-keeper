@@ -1,6 +1,6 @@
 FROM centurylink/ca-certs
 MAINTAINER Albin Gilles <gilles.albin@gmail.com>
-ENV REFRESHED_AT 2016-11-30
+ENV REFRESHED_AT 2016-12-14
 
 EXPOSE 8080
 
